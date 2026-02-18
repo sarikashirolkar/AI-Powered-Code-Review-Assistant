@@ -7,6 +7,7 @@ This project automatically reviews code for:
 - Cyclomatic complexity risks (`radon`)
 - Common bug-prone patterns (custom AST heuristics)
 - Optional AI suggestions using OpenAI models
+- Streamlit-based web UI with an interactive review bot
 
 It also supports GitHub Pull Request review using the GitHub API.
 
@@ -26,6 +27,7 @@ It is designed as a clean, extensible foundation for an interview/portfolio proj
 - GitHub REST API
 - Ruff
 - Radon
+- Streamlit
 - Pytest
 
 ## Project Structure
@@ -38,11 +40,14 @@ code_review_assistant/
     heuristics.py    # AST-based potential bug checks
   ai/
     reviewer.py      # OpenAI summary + recommendations
+    chatbot.py       # interactive review bot using OpenAI
   github/
     client.py        # GitHub PR file/patch fetch
   reporting/
     formatter.py     # markdown/json report rendering
   cli.py             # main CLI entrypoint
+  review_engine.py   # reusable orchestration for CLI/UI
+streamlit_app.py     # web interface
 tests/
   test_heuristics.py
 ```
@@ -87,6 +92,18 @@ code-review-assistant review-path --path src --format json --output reports/loca
 ```bash
 code-review-assistant review-pr --repo owner/repo --pr-number 123 --use-ai --format markdown --output reports/pr_123_review.md
 ```
+
+### 5) Launch Streamlit frontend
+
+```bash
+streamlit run streamlit_app.py
+```
+
+The frontend includes:
+- Local path review
+- GitHub PR review
+- Download buttons for Markdown/JSON reports
+- Chat-style review bot grounded on the generated report
 
 ## CLI Reference
 

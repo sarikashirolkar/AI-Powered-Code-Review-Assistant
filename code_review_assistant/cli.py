@@ -4,14 +4,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from code_review_assistant.ai.reviewer import generate_ai_review
-from code_review_assistant.analyzers.complexity import run_complexity
-from code_review_assistant.analyzers.heuristics import run_bug_risk_heuristics
-from code_review_assistant.analyzers.static import run_ruff
-from code_review_assistant.config import get_settings
-from code_review_assistant.github.client import GitHubClient
 from code_review_assistant.models import ReviewReport
 from code_review_assistant.reporting.formatter import to_json, to_markdown
+from code_review_assistant.review_engine import review_github_pr, review_local_path
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,32 +36,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def review_path(args: argparse.Namespace) -> ReviewReport:
-    report = ReviewReport(target=str(Path(args.path).resolve()))
-    report.add_findings(run_ruff(args.path))
-    report.add_findings(run_complexity(args.path, min_grade=args.complexity_threshold))
-    report.add_findings(run_bug_risk_heuristics(args.path))
-
-    if args.use_ai:
-        settings = get_settings()
-        report.ai_summary = generate_ai_review(settings=settings, findings=report.findings)
-
-    return report
+    return review_local_path(
+        path=args.path,
+        complexity_threshold=args.complexity_threshold,
+        use_ai=args.use_ai,
+    )
 
 
 def review_pr(args: argparse.Namespace) -> ReviewReport:
-    settings = get_settings()
-    gh = GitHubClient(token=settings.github_token)
-    files = gh.fetch_pr_files(repo=args.repo, pr_number=args.pr_number)
-
-    report = ReviewReport(
-        target=f"https://github.com/{args.repo}/pull/{args.pr_number}",
-        metadata={"files_changed": len(files)},
-    )
-
-    if args.use_ai:
-        report.ai_summary = generate_ai_review(settings=settings, findings=[], changed_files=files)
-
-    return report
+    return review_github_pr(repo=args.repo, pr_number=args.pr_number, use_ai=args.use_ai)
 
 
 def render_report(report: ReviewReport, fmt: str) -> str:
