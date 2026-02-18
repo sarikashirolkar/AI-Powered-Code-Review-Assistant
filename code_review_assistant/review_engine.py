@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from code_review_assistant.ai.reviewer import generate_ai_review
 from code_review_assistant.analyzers.complexity import run_complexity
@@ -38,3 +39,31 @@ def review_github_pr(repo: str, pr_number: int, use_ai: bool = False) -> ReviewR
         report.ai_summary = generate_ai_review(settings=settings, findings=[], changed_files=files)
 
     return report
+
+
+def review_code_snippet(
+    code: str,
+    filename: str = "snippet.py",
+    complexity_threshold: str = "C",
+    use_ai: bool = False,
+) -> ReviewReport:
+    if not code.strip():
+        raise ValueError("Code snippet is empty.")
+
+    with TemporaryDirectory(prefix="code_review_snippet_") as tmp_dir:
+        snippet_path = Path(tmp_dir) / filename
+        snippet_path.write_text(code, encoding="utf-8")
+
+        report = ReviewReport(
+            target=f"in-memory snippet ({filename})",
+            metadata={"source": "pasted_code"},
+        )
+        report.add_findings(run_ruff(str(snippet_path)))
+        report.add_findings(run_complexity(str(snippet_path), min_grade=complexity_threshold))
+        report.add_findings(run_bug_risk_heuristics(str(snippet_path)))
+
+        if use_ai:
+            settings = get_settings()
+            report.ai_summary = generate_ai_review(settings=settings, findings=report.findings)
+
+        return report

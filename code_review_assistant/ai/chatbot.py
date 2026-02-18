@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 
-from openai import OpenAI
-
+from code_review_assistant.ai.provider import generate_llm_response
 from code_review_assistant.config import Settings
 from code_review_assistant.models import ReviewReport
 
@@ -15,10 +14,6 @@ CHAT_SYSTEM_PROMPT = (
 
 
 def ask_review_bot(settings: Settings, report: ReviewReport, question: str) -> str:
-    if not settings.openai_api_key:
-        return "OPENAI_API_KEY not configured. Bot is unavailable."
-
-    client = OpenAI(api_key=settings.openai_api_key)
     context = {
         "target": report.target,
         "total_findings": len(report.findings),
@@ -27,20 +22,12 @@ def ask_review_bot(settings: Settings, report: ReviewReport, question: str) -> s
         "metadata": report.metadata,
     }
 
-    response = client.responses.create(
-        model=settings.openai_model,
-        input=[
-            {"role": "system", "content": CHAT_SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": (
-                    "Code review context:\n"
-                    f"{json.dumps(context)}\n\n"
-                    f"Developer question: {question}"
-                ),
-            },
-        ],
-        temperature=0.2,
+    return generate_llm_response(
+        settings=settings,
+        system_prompt=CHAT_SYSTEM_PROMPT,
+        user_prompt=(
+            "Code review context:\n"
+            f"{json.dumps(context)}\n\n"
+            f"Developer question: {question}"
+        ),
     )
-
-    return (response.output_text or "No response generated.").strip()

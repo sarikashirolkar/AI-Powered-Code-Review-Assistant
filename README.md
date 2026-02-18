@@ -24,6 +24,7 @@ It is designed as a clean, extensible foundation for an interview/portfolio proj
 
 - Python 3.10+
 - OpenAI API
+- Ollama (optional local LLM)
 - GitHub REST API
 - Ruff
 - Radon
@@ -39,8 +40,9 @@ code_review_assistant/
     complexity.py    # cyclomatic complexity via radon
     heuristics.py    # AST-based potential bug checks
   ai/
-    reviewer.py      # OpenAI summary + recommendations
-    chatbot.py       # interactive review bot using OpenAI
+    reviewer.py      # AI summary (OpenAI or Ollama)
+    chatbot.py       # interactive review bot
+    provider.py      # LLM provider routing (auto/openai/ollama)
   github/
     client.py        # GitHub PR file/patch fetch
   reporting/
@@ -71,9 +73,19 @@ cp .env.example .env
 ```
 
 Set values in `.env`:
-- `OPENAI_API_KEY`: required for AI review
+- `LLM_PROVIDER`: `auto` (default), `openai`, or `ollama`
+- `OPENAI_API_KEY`: required only when using OpenAI
 - `OPENAI_MODEL`: optional, defaults to `gpt-4o-mini`
+- `OLLAMA_HOST`: optional, defaults to `http://localhost:11434`
+- `OLLAMA_MODEL`: optional, defaults to `llama3.1:8b`
 - `GITHUB_TOKEN`: required for private repos or higher API limits
+
+For local AI without API keys (Ollama):
+
+```bash
+ollama serve
+ollama pull llama3.1:8b
+```
 
 ### 3) Run local path review
 
@@ -102,6 +114,7 @@ streamlit run streamlit_app.py
 The frontend includes:
 - Local path review
 - GitHub PR review
+- Paste-code instant review (no file required)
 - Download buttons for Markdown/JSON reports
 - Chat-style review bot grounded on the generated report
 

@@ -8,7 +8,7 @@ from code_review_assistant.ai.chatbot import ask_review_bot
 from code_review_assistant.config import get_settings
 from code_review_assistant.models import ReviewReport
 from code_review_assistant.reporting.formatter import to_json, to_markdown
-from code_review_assistant.review_engine import review_github_pr, review_local_path
+from code_review_assistant.review_engine import review_code_snippet, review_github_pr, review_local_path
 
 
 st.set_page_config(page_title="AI Code Review Assistant", layout="wide")
@@ -91,6 +91,11 @@ def _chat_section(report: ReviewReport) -> None:
     st.session_state.chat_messages.append({"role": "assistant", "content": answer})
 
 
+def _set_latest_report(report: ReviewReport) -> None:
+    st.session_state.latest_report = report
+    st.session_state.chat_messages = []
+
+
 def _local_review_tab() -> None:
     st.markdown("### Local Path Review")
     path = st.text_input("Path to file/folder", value=".")
@@ -100,7 +105,7 @@ def _local_review_tab() -> None:
     if st.button("Run Local Review", use_container_width=True):
         try:
             report = review_local_path(path=path, complexity_threshold=complexity_threshold, use_ai=use_ai)
-            st.session_state.latest_report = report
+            _set_latest_report(report)
             st.success("Review completed.")
         except Exception as exc:
             st.error(f"Review failed: {exc}")
@@ -119,23 +124,56 @@ def _pr_review_tab() -> None:
 
         try:
             report = review_github_pr(repo=repo, pr_number=int(pr_number), use_ai=use_ai)
-            st.session_state.latest_report = report
+            _set_latest_report(report)
             st.success("PR review completed.")
         except Exception as exc:
             st.error(f"PR review failed: {exc}")
+
+
+def _snippet_review_tab() -> None:
+    st.markdown("### Paste Code Review")
+    st.caption("Paste Python code and run instant review without saving files.")
+    code = st.text_area(
+        "Paste Python code",
+        height=260,
+        placeholder="def unsafe(data=[]):\n    try:\n        eval('1+1')\n    except:\n        return data",
+    )
+    complexity_threshold = st.selectbox(
+        "Complexity threshold for snippet",
+        ["A", "B", "C", "D", "E", "F"],
+        index=2,
+        key="snippet_complexity_threshold",
+    )
+    use_ai = st.checkbox("Use AI summary for snippet", value=True, key="snippet_use_ai")
+
+    if st.button("Review Pasted Code", use_container_width=True):
+        try:
+            report = review_code_snippet(
+                code=code,
+                filename="snippet.py",
+                complexity_threshold=complexity_threshold,
+                use_ai=use_ai,
+            )
+            _set_latest_report(report)
+            st.success("Snippet review completed.")
+        except Exception as exc:
+            st.error(f"Snippet review failed: {exc}")
 
 
 def main() -> None:
     st.title("AI-Powered Code Review Assistant")
     st.caption("Static analysis + complexity checks + AI-powered review bot")
 
-    local_tab, pr_tab = st.tabs(["Local Review", "PR Review"])
+    local_tab, pr_tab, snippet_tab = st.tabs(["Local Review", "PR Review", "Paste Code"])
 
     with local_tab:
         _local_review_tab()
 
     with pr_tab:
         _pr_review_tab()
+
+    with snippet_tab:
+        _snippet_review_tab()
 
     report = st.session_state.get("latest_report")
     if report:
